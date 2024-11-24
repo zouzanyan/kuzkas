@@ -1,4 +1,6 @@
-package entity;
+package singleton;
+
+import entity.Cache;
 
 // 缓存单例
 public class CacheSingleton {

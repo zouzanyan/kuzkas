@@ -30,7 +30,7 @@ public class Server {
             }).option(ChannelOption.SO_BACKLOG, 128).childOption(ChannelOption.SO_KEEPALIVE, true);
 
             ChannelFuture f = b.bind(8080).sync();
-            System.out.println("server start at 8080");
+            System.out.println("server start at Port 8080");
             f.channel().closeFuture().sync();
         } finally {
             workerGroup.shutdownGracefully();

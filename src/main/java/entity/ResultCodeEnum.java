@@ -1,4 +1,4 @@
-package res;
+package entity;
 
 import lombok.Getter;
 

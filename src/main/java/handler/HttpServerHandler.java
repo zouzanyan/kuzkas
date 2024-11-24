@@ -1,14 +1,15 @@
 package handler;
 
 import com.alibaba.fastjson.JSON;
+import entity.ApiResult;
 import entity.Cache;
-import entity.CacheSingleton;
+import entity.UriOperationEnum;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
-import res.ApiResult;
-import res.SetMessage;
+import message.SetMessage;
+import singleton.CacheSingleton;
 
 import java.nio.charset.StandardCharsets;
 
@@ -24,21 +25,68 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
 
     private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
         // 解析请求
-        String uri = req.uri();
-        HttpMethod method = req.method();
+        try {
+            String uri = req.uri();
+            HttpMethod method = req.method();
+            String requestBodyString = req.content().toString(StandardCharsets.UTF_8);
+            String[] split = uri.split("/");
+            String operationSign = split[1];
 
-        if (method.equals(HttpMethod.GET)){
-            if (uri.startsWith("/get")) {
-                handleGetOperation(ctx, req);
+            if (method.equals(HttpMethod.GET)) {
+                if (UriOperationEnum.GET.getUri().equals(operationSign)) {
+                    String key = split[2];
+                    Object data = OperationHandler.handleGetOperation(key);
+                    if (data == null) {
+                        sendSuccessResponse(ctx, ApiResult.fail("键值对未找到"));
+                        return;
+                    }
+                    sendSuccessResponse(ctx, ApiResult.success(data));
+                } else if (UriOperationEnum.KEYS.getUri().equals(operationSign)) {
+                    Object data = OperationHandler.handleAllKeysOperation();
+                    sendSuccessResponse(ctx, ApiResult.success(data));
+                } else if (UriOperationEnum.ALL.getUri().equals(operationSign)) {
+                    Object data = OperationHandler.handleAllKeyValuesOperation();
+                    sendSuccessResponse(ctx, ApiResult.success(data));
+                } else {
+                    sendErrorResponse(ctx, "不支持的请求方法");
+                }
+            } else if (method.equals(HttpMethod.POST)) {
+
+                if (UriOperationEnum.SET.getUri().equals(operationSign)) {
+                    boolean b = OperationHandler.handleSetOperation(requestBodyString);
+                    if (!b) {
+                        sendSuccessResponse(ctx, ApiResult.fail("设置失败"));
+                    }
+                    sendSuccessResponse(ctx, ApiResult.success("设置成功"));
+                } else if (UriOperationEnum.DEL.getUri().equals(operationSign)) {
+                    boolean b = OperationHandler.handleDelOperation(requestBodyString);
+                    if (!b) {
+                        sendSuccessResponse(ctx, ApiResult.fail("删除失败"));
+                    }
+                    sendSuccessResponse(ctx, ApiResult.success("删除成功"));
+                } else if (UriOperationEnum.EXPIRE.getUri().equals(operationSign)) {
+                    boolean b = OperationHandler.handleExpireOperation(requestBodyString);
+                    if (!b) {
+                        sendSuccessResponse(ctx, ApiResult.fail("失效时间设置失败"));
+                    }
+                    sendSuccessResponse(ctx, ApiResult.success("失效时间设置成功"));
+                }  else if (UriOperationEnum.RPUSH.getUri().equals(operationSign)) {
+                    boolean b = OperationHandler.handleRpushOperation(requestBodyString);
+                    if (!b) {
+                        sendSuccessResponse(ctx, ApiResult.fail("添加失败"));
+                    }
+                    sendSuccessResponse(ctx, ApiResult.success("添加成功"));
+                } else if (UriOperationEnum.LPOP.getUri().equals(operationSign)) {
+                    Object data = OperationHandler.handleLpopOperation(requestBodyString);
+                    sendSuccessResponse(ctx, ApiResult.success(data));
+                } else {
+                    sendErrorResponse(ctx, "不支持的请求方法");
+                }
             }
-        }else if(method.equals(HttpMethod.POST)){
-            if (uri.startsWith("/set")){
-                handleSetOperation(ctx, req);
-            }
-        }else{
-            sendErrorResponse(ctx, "不支持的请求方法");
+        } catch (Exception e) {
+            sendErrorResponse(ctx, "请求参数不合法");
+            e.printStackTrace();
         }
-
     }
 
     private void handleGetOperation(ChannelHandlerContext ctx, FullHttpRequest req) {
@@ -90,3 +138,4 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
         ctx.writeAndFlush(response);
     }
 }
+

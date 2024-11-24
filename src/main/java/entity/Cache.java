@@ -1,8 +1,11 @@
 package entity;
 
 
+import com.alibaba.fastjson.JSONArray;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 
 
 public class Cache {
@@ -51,12 +54,13 @@ public class Cache {
      * @param expireTime 过期时间，如果大于等于0，则表示从当前时间起数据的有效期（毫秒）,小于0表示永不过期
      */
     public void set(String key, Object value, Long expireTime) {
+        long currentTimeMillis = System.currentTimeMillis();
         // 如果过期时间未设置，则默认为-1，表示永不过期
         if (expireTime == null){
-            expireTime = (long) -1;
+            expireTime = -1L;
         }
         if (expireTime > 0) {
-            expireTime = System.currentTimeMillis() + expireTime;
+            expireTime = currentTimeMillis + expireTime;
         }
         CacheEntry cacheEntry = new CacheEntry(value, expireTime);
         cacheMap.put(key, cacheEntry);
@@ -84,7 +88,7 @@ public class Cache {
         }
         long expireTimestamp = cacheEntry.getExpireTimestamp();
         // ** 惰性删除 **
-        if (expireTimestamp > 0 && expireTimestamp < currentTimeMillis) {
+        if (expireTimestamp >= 0 && expireTimestamp < currentTimeMillis) {
             cacheMap.remove(key);
             return null;
         }
@@ -142,15 +146,38 @@ public class Cache {
         return cacheMap.keySet();
     }
 
-    // 向缓存的列表中添加数据
-    public void lPush(String key, Object value) {
-        List<Object> list = (List<Object>) get(key);
-        if (list == null) {
-            list = new ArrayList<>();
+    // 向列表中添加数据
+    @SuppressWarnings("unchecked")
+    public boolean Rpush(String listName, Object value) {
+        Object data = get(listName);
+        if (data == null) {
+            ArrayList<Object> objects = new ArrayList<>();
+            objects.add(value);
+            set(listName, objects, -1L);
+            return true;
         }
-        list.add(value);
-        set(key, list, null);
+        // 已经存在列表了，可能是set进去的(set进去的列表会被 FastJSON deserialize 为JSONArray,##JSONArray extends List##).也可能是lpush进去的
+        if (data instanceof List){
+            ((List<Object>) data).add(value);
+            return true;
+        }
+        return false;
     }
 
+    @SuppressWarnings("unchecked")
+    public Object Lpop(String listName){
+        Object data = get(listName);
+        if (data == null) {
+            return null;
+        }
+        // 从左边删除
+        if (data instanceof List){
+            List<Object> list = (List<Object>) data;
+            if (list.size() == 0){
+                return null;
+            }
+            return (list.remove(0));
+        }
+        return null;
+    }
 }
-

@@ -1,13 +1,11 @@
-package res;
+package message;
 
 import lombok.Data;
 
 @Data
-public class SetMessage {
+public class ExpireMessage {
 
     private String key;
-    private Object value;
     // 过期毫秒时间
     private Long expireTime;
-
 }
