@@ -8,7 +8,10 @@ public enum UriOperationEnum {
     EXPIRE("expire"),
     ALL("all"),
     RPUSH("rpush"),
+    RPOP("rpop"),
+    LPUSH("lpush"),
     LPOP("lpop"),
+    LRANGE("lrange"),
     LLEN("llen");
 
 

@@ -8,13 +8,14 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
-import message.SetMessage;
+import message.PostMessage;
 import singleton.CacheSingleton;
 
 import java.nio.charset.StandardCharsets;
 
 public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
+    // 懒加载
     private final Cache cache = CacheSingleton.getInstance();
 
     @Override
@@ -29,12 +30,17 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
             String uri = req.uri();
             HttpMethod method = req.method();
             String requestBodyString = req.content().toString(StandardCharsets.UTF_8);
-            String[] split = uri.split("/");
-            String operationSign = split[1];
-
+            String operationSign = "";
+            String[] tokens = checkLegalAndReturnToken(ctx, uri);
+            if (tokens == null) return;
+            operationSign = tokens[1];
             if (method.equals(HttpMethod.GET)) {
                 if (UriOperationEnum.GET.getUri().equals(operationSign)) {
-                    String key = split[2];
+                    if (tokens.length != 3) {
+                        sendErrorResponse(ctx, "请求参数不合法");
+                        return;
+                    }
+                    String key = tokens[2];
                     Object data = OperationHandler.handleGetOperation(key);
                     if (data == null) {
                         sendSuccessResponse(ctx, ApiResult.fail("键值对未找到"));
@@ -89,6 +95,20 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
         }
     }
 
+    private String[] checkLegalAndReturnToken(ChannelHandlerContext ctx, String uri) {
+        String[] split;
+        if (!uri.matches("^/[^/]+(/[^/]+)*$")) {
+            sendErrorResponse(ctx, "无效的 URI 格式");
+            return null;
+        }
+        split = uri.split("/");
+        if (split.length < 2) {
+            sendErrorResponse(ctx, "无效 URI 格式");
+            return null;
+        }
+        return split;
+    }
+
     private void handleGetOperation(ChannelHandlerContext ctx, FullHttpRequest req) {
         String key = req.uri().substring(5);
         Object value = cache.get(key);
@@ -104,7 +124,7 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
     private void handleSetOperation(ChannelHandlerContext ctx, FullHttpRequest req) {
         // 解析请求参数
         String content = req.content().toString(StandardCharsets.UTF_8);
-        SetMessage setMessage = JSON.parseObject(content, SetMessage.class);
+        PostMessage setMessage = JSON.parseObject(content, PostMessage.class);
         if (setMessage == null || setMessage.getKey() == null || setMessage.getValue() == null) {
             sendSuccessResponse(ctx, ApiResult.fail("请求参数不合法"));
             return;

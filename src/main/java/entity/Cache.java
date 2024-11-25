@@ -1,11 +1,9 @@
 package entity;
 
 
-import com.alibaba.fastjson.JSONArray;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 
 public class Cache {
@@ -14,36 +12,8 @@ public class Cache {
 
     private final Map<String, CacheEntry> cacheMap = new ConcurrentHashMap<>();
 
-    static class CacheEntry {
-
-        private Object value;
-        // 失效时间
-        private long expireTimestamp;
-
-
-        public CacheEntry(Object value, long expireTimestamp) {
-            this.value = value;
-            this.expireTimestamp = expireTimestamp;
-        }
-
-        public Object getValue() {
-            return value;
-        }
-
-        public void setValue(Object value) {
-            this.value = value;
-        }
-
-
-        public long getExpireTimestamp() {
-            return expireTimestamp;
-        }
-
-        public void setExpireTimestamp(long expireTime) {
-            this.expireTimestamp = expireTime;
-        }
-
-
+    public Map<String, CacheEntry> getCacheMap() {
+        return cacheMap;
     }
 
     /**
@@ -56,7 +26,7 @@ public class Cache {
     public void set(String key, Object value, Long expireTime) {
         long currentTimeMillis = System.currentTimeMillis();
         // 如果过期时间未设置，则默认为-1，表示永不过期
-        if (expireTime == null){
+        if (expireTime == null) {
             expireTime = -1L;
         }
         if (expireTime > 0) {
@@ -68,7 +38,7 @@ public class Cache {
 
     // setIfAbsent 操作, 如果键不存在,则设置键值对返回true,否则设置失败,返回false
     public boolean setIfAbsent(String key, Object value, Long expireTime) {
-        if (expireTime == null){
+        if (expireTime == null) {
             expireTime = (long) -1;
         }
         if (expireTime > 0) {
@@ -146,18 +116,17 @@ public class Cache {
         return cacheMap.keySet();
     }
 
-    // 向列表中添加数据
+    // 向列表中添加数据.始终使用rpush添加元素的列表保证线程安全，使用set添加的列表(JSONArray)不保证线程安全
     @SuppressWarnings("unchecked")
-    public boolean Rpush(String listName, Object value) {
+    public boolean rpush(String listName, Object value) {
         Object data = get(listName);
         if (data == null) {
-            ArrayList<Object> objects = new ArrayList<>();
+            CopyOnWriteArrayList<Object> objects = new CopyOnWriteArrayList<>();
             objects.add(value);
             set(listName, objects, -1L);
             return true;
         }
-        // 已经存在列表了，可能是set进去的(set进去的列表会被 FastJSON deserialize 为JSONArray,##JSONArray extends List##).也可能是lpush进去的
-        if (data instanceof List){
+        if (data instanceof List) {
             ((List<Object>) data).add(value);
             return true;
         }
@@ -165,19 +134,109 @@ public class Cache {
     }
 
     @SuppressWarnings("unchecked")
-    public Object Lpop(String listName){
+    public boolean lpush(String listName, Object value) {
+        Object data = get(listName);
+        if (data == null) {
+            List<Object> objects = new CopyOnWriteArrayList<>();
+            objects.add(0, value);
+            set(listName, objects, -1L);
+            return true;
+        }
+        if (data instanceof List) {
+            ((List<Object>) data).add(0, value);
+            return true;
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object rpop(String listName) {
+        Object data = get(listName);
+        if (data == null) {
+            return null;
+        }
+        // 从右边删除
+        if (data instanceof List) {
+            List<Object> list = (List<Object>) data;
+            if (list.size() == 0) {
+                return null;
+            }
+            return (list.remove(list.size() - 1));
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Object lpop(String listName) {
         Object data = get(listName);
         if (data == null) {
             return null;
         }
         // 从左边删除
-        if (data instanceof List){
+        if (data instanceof List) {
             List<Object> list = (List<Object>) data;
-            if (list.size() == 0){
+            if (list.size() == 0) {
                 return null;
             }
             return (list.remove(0));
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public Integer llen(String listName) {
+        Object data = get(listName);
+        if (data == null) {
+            return null;
+        }
+        if (data instanceof List) {
+            return ((List<Object>) data).size();
+        }
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<Object> lrange(String listName, Integer start, Integer end) throws Exception{
+
+        Object data = get(listName);
+        if (data == null) {
+            return null;
+        }
+        if (data instanceof List) {
+            return ((List<Object>) data).subList(start, end);
+        }
+        return null;
+    }
+
+    public static class CacheEntry {
+
+        private Object value;
+        // 失效时间
+        private long expireTimestamp;
+
+
+        public CacheEntry(Object value, long expireTimestamp) {
+            this.value = value;
+            this.expireTimestamp = expireTimestamp;
+        }
+
+        public Object getValue() {
+            return value;
+        }
+
+        public void setValue(Object value) {
+            this.value = value;
+        }
+
+
+        public long getExpireTimestamp() {
+            return expireTimestamp;
+        }
+
+        public void setExpireTimestamp(long expireTime) {
+            this.expireTimestamp = expireTime;
+        }
+
+
     }
 }

@@ -3,10 +3,8 @@ package handler;
 
 import com.alibaba.fastjson.JSON;
 import entity.Cache;
+import message.PostMessage;
 import singleton.CacheSingleton;
-import message.DelMessage;
-import message.ExpireMessage;
-import message.SetMessage;
 
 public class OperationHandler {
     private static final Cache cache = CacheSingleton.getInstance();
@@ -16,11 +14,11 @@ public class OperationHandler {
     }
 
     public static boolean handleSetOperation(String content) {
-        SetMessage setMessage = JSON.parseObject(content, SetMessage.class);
+        PostMessage setMessage = JSON.parseObject(content, PostMessage.class);
         if (setMessage == null || setMessage.getKey() == null) {
             return false;
         }
-        if (Boolean.TRUE.equals(setMessage.getSetIfAbsent())){
+        if (Boolean.TRUE.equals(setMessage.getSetIfAbsent())) {
             return cache.setIfAbsent(setMessage.getKey(), setMessage.getValue(), setMessage.getExpireTime());
         }
         cache.set(setMessage.getKey(), setMessage.getValue(), setMessage.getExpireTime());
@@ -29,12 +27,13 @@ public class OperationHandler {
 
     public static boolean handleDelOperation(String content) {
 
-        DelMessage delMessage = JSON.parseObject(content, DelMessage.class);
+        PostMessage delMessage = JSON.parseObject(content, PostMessage.class);
         return cache.del(delMessage.getKey());
 
     }
+
     public static boolean handleExpireOperation(String content) {
-        ExpireMessage expireMessage = JSON.parseObject(content, ExpireMessage.class);
+        PostMessage expireMessage = JSON.parseObject(content, PostMessage.class);
         return cache.expire(expireMessage.getKey(), expireMessage.getExpireTime());
     }
 
@@ -47,18 +46,39 @@ public class OperationHandler {
     }
 
     public static boolean handleSetIfAbsentOperation(String content) {
-        SetMessage setMessage = JSON.parseObject(content, SetMessage.class);
-        return cache.setIfAbsent(setMessage.getKey(), setMessage.getValue(), setMessage.getExpireTime());
+        PostMessage setifAbsentMessage = JSON.parseObject(content, PostMessage.class);
+        return cache.setIfAbsent(setifAbsentMessage.getKey(), setifAbsentMessage.getValue(), setifAbsentMessage.getExpireTime());
     }
 
 
     public static boolean handleRpushOperation(String content) {
-        SetMessage setMessage = JSON.parseObject(content, SetMessage.class);
-        return cache.Rpush(setMessage.getKey(), setMessage.getValue());
+        PostMessage rpushMessage = JSON.parseObject(content, PostMessage.class);
+        return cache.rpush(rpushMessage.getKey(), rpushMessage.getValue());
     }
 
     public static Object handleLpopOperation(String content) {
-        SetMessage setMessage = JSON.parseObject(content, SetMessage.class);
-        return cache.Lpop(setMessage.getKey());
+        PostMessage lpopMessage = JSON.parseObject(content, PostMessage.class);
+        return cache.lpop(lpopMessage.getKey());
+    }
+
+    public static boolean handleLpushOperation(String content) {
+        PostMessage lpushMessage = JSON.parseObject(content, PostMessage.class);
+        return cache.lpush(lpushMessage.getKey(), lpushMessage.getValue());
+    }
+
+
+    public static Object handleRpopOperation(String content) {
+        PostMessage rpopMessage = JSON.parseObject(content, PostMessage.class);
+        return cache.rpop(rpopMessage.getKey());
+    }
+
+    public static Object handleLrangeOperation(String content) throws Exception {
+        PostMessage lrangeMessage = JSON.parseObject(content, PostMessage.class);
+        return cache.lrange(lrangeMessage.getKey(), lrangeMessage.getListIndexStart(), lrangeMessage.getListIndexEnd());
+    }
+
+    public static Integer handleLlenOperation(String content) {
+        PostMessage llenMessage = JSON.parseObject(content, PostMessage.class);
+        return cache.llen(llenMessage.getKey());
     }
 }
