@@ -6,14 +6,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 
-public class Cache {
+public class Cache implements ICache {
 
     // TODO 目前是多线程，可增加串行化处理逻辑，保证一致性
 
-    private final Map<String, CacheEntry> cacheMap = new ConcurrentHashMap<>();
+    private Map<String, CacheEntry> cacheMap = new ConcurrentHashMap<>();
 
     public Map<String, CacheEntry> getCacheMap() {
         return cacheMap;
+    }
+
+    public void setCacheMap(Map<String, CacheEntry> cacheMap) {
+        this.cacheMap = cacheMap;
     }
 
     /**
@@ -23,6 +27,7 @@ public class Cache {
      * @param value      值，存储的数据对象
      * @param expireTime 过期时间，如果大于等于0，则表示从当前时间起数据的有效期（毫秒）,小于0表示永不过期
      */
+    @Override
     public void set(String key, Object value, Long expireTime) {
         long currentTimeMillis = System.currentTimeMillis();
         // 如果过期时间未设置，则默认为-1，表示永不过期
@@ -37,6 +42,7 @@ public class Cache {
     }
 
     // setIfAbsent 操作, 如果键不存在,则设置键值对返回true,否则设置失败,返回false
+    @Override
     public boolean setIfAbsent(String key, Object value, Long expireTime) {
         if (expireTime == null) {
             expireTime = (long) -1;
@@ -49,6 +55,7 @@ public class Cache {
     }
 
     // 从缓存获取值
+    @Override
     public Object get(String key) {
         long currentTimeMillis = System.currentTimeMillis();
         CacheEntry cacheEntry = cacheMap.get(key);
@@ -66,11 +73,13 @@ public class Cache {
     }
 
     // 从缓存删除键值对
+    @Override
     public boolean del(String key) {
         return cacheMap.remove(key) != null;
     }
 
     // 缓存时间修改
+    @Override
     public boolean expire(String key, long expireTime) {
         long currentTimeMillis = System.currentTimeMillis();
         CacheEntry cacheEntry = cacheMap.get(key);
@@ -85,6 +94,7 @@ public class Cache {
     }
 
     // 获取缓存中所有的键值对
+    @Override
     public Map<String, Object> getAllKeyValues() {
         // 主动清理过期键
         clearExpiredKeys();
@@ -112,11 +122,13 @@ public class Cache {
     }
 
     // 获取缓存中所有的键
+    @Override
     public Set<String> getAllKeys() {
         return cacheMap.keySet();
     }
 
     // 向列表中添加数据.始终使用rpush添加元素的列表保证线程安全，使用set添加的列表(JSONArray)不保证线程安全
+    @Override
     @SuppressWarnings("unchecked")
     public boolean rpush(String listName, Object value) {
         Object data = get(listName);
@@ -133,6 +145,7 @@ public class Cache {
         return false;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public boolean lpush(String listName, Object value) {
         Object data = get(listName);
@@ -149,6 +162,7 @@ public class Cache {
         return false;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public Object rpop(String listName) {
         Object data = get(listName);
@@ -166,6 +180,7 @@ public class Cache {
         return null;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public Object lpop(String listName) {
         Object data = get(listName);
@@ -183,6 +198,7 @@ public class Cache {
         return null;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
     public Integer llen(String listName) {
         Object data = get(listName);
@@ -195,8 +211,9 @@ public class Cache {
         return null;
     }
 
+    @Override
     @SuppressWarnings("unchecked")
-    public List<Object> lrange(String listName, Integer start, Integer end) throws Exception{
+    public List<Object> lrange(String listName, Integer start, Integer end) throws Exception {
 
         Object data = get(listName);
         if (data == null) {
@@ -208,12 +225,29 @@ public class Cache {
         return null;
     }
 
-    public static class CacheEntry {
+    // 获取键值对数量
+    @Override
+    public int size() {
+        return cacheMap.size();
+    }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Cache)) return false;
+        Cache cache = (Cache) o;
+        return Objects.equals(cacheMap, cache.cacheMap);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(cacheMap);
+    }
+
+    public static class CacheEntry {
         private Object value;
         // 失效时间
         private long expireTimestamp;
-
 
         public CacheEntry(Object value, long expireTimestamp) {
             this.value = value;
@@ -228,15 +262,26 @@ public class Cache {
             this.value = value;
         }
 
-
         public long getExpireTimestamp() {
             return expireTimestamp;
         }
 
-        public void setExpireTimestamp(long expireTime) {
-            this.expireTimestamp = expireTime;
+        public void setExpireTimestamp(long expireTimestamp) {
+            this.expireTimestamp = expireTimestamp;
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof CacheEntry)) return false;
+            CacheEntry that = (CacheEntry) o;
+            return expireTimestamp == that.expireTimestamp && Objects.equals(value, that.value);
+        }
 
+        @Override
+        public int hashCode() {
+            return Objects.hash(value, expireTimestamp);
+        }
     }
+
 }

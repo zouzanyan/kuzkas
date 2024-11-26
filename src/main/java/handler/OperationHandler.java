@@ -3,11 +3,12 @@ package handler;
 
 import com.alibaba.fastjson.JSON;
 import entity.Cache;
+import entity.CacheProxy;
 import message.PostMessage;
 import singleton.CacheSingleton;
 
 public class OperationHandler {
-    private static final Cache cache = CacheSingleton.getInstance();
+    private static final CacheProxy cache = CacheSingleton.getInstance();
 
     public static Object handleGetOperation(String key) {
         return cache.get(key);

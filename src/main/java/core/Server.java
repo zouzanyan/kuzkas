@@ -31,7 +31,9 @@ public class Server {
 
             ChannelFuture f = b.bind(8080).sync();
             System.out.println("server start at Port 8080");
+            //TODO 看门狗机制
             f.channel().closeFuture().sync();
+            System.out.println("server closed");
         } finally {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
