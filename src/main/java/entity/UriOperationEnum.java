@@ -26,4 +26,13 @@ public enum UriOperationEnum {
     public String getUri() {
         return uri;
     }
+
+    public static UriOperationEnum fromUri(String uri) {
+        for (UriOperationEnum operation : values()) {
+            if (operation.getUri().equals(uri)) {
+                return operation;
+            }
+        }
+        return null;
+    }
 }

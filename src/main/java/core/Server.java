@@ -9,9 +9,12 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
 import io.netty.handler.codec.http.HttpResponseEncoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 public class Server {
+    private static final Logger logger = LoggerFactory.getLogger(Server.class);
 
     public static void main(String[] args) throws Exception {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
@@ -29,11 +32,10 @@ public class Server {
                 }
             }).option(ChannelOption.SO_BACKLOG, 128).childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            ChannelFuture f = b.bind(8080).sync();
-            System.out.println("server start at Port 8080");
-            //TODO 看门狗机制
+            ChannelFuture f = b.bind(7508).sync();
+            logger.info("Kuzkas Server started at port 7508, owner");
             f.channel().closeFuture().sync();
-            System.out.println("server closed");
+            logger.info("Kuzkas Server closed, bye");
         } finally {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
