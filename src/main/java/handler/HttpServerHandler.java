@@ -8,7 +8,6 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
-import message.PostMessage;
 import singleton.CacheSingleton;
 
 import java.nio.charset.StandardCharsets;
@@ -37,34 +36,34 @@ private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
 
         UriOperationEnum operation = UriOperationEnum.fromUri(operationSign);
         if (operation == null) {
-            sendErrorResponse(ctx, "不支持的请求方法");
+            sendErrorResponse(ctx, "Unsupported operation command");
             return;
         }
 
         if (HttpMethod.GET.equals(method)) {
-            handleGetRequest(ctx, req, operation, tokens);
+            handleGetRequest(ctx, operation, tokens);
         } else if (HttpMethod.POST.equals(method)) {
-            handlePostRequest(ctx, req, operation, requestBodyString);
+            handlePostRequest(ctx, operation, requestBodyString);
         } else {
-            sendErrorResponse(ctx, "不支持的请求方法");
+            sendErrorResponse(ctx, "Unsupported request method");
         }
     } catch (Exception e) {
-        sendErrorResponse(ctx, "请求参数不合法");
+        sendErrorResponse(ctx, "The request parameter is illegal");
         e.printStackTrace();
     }
 }
 
-    private void handleGetRequest(ChannelHandlerContext ctx, FullHttpRequest req, UriOperationEnum operation, String[] tokens) {
+    private void handleGetRequest(ChannelHandlerContext ctx, UriOperationEnum operation, String[] tokens) {
         switch (operation) {
             case GET:
                 if (tokens.length != 3) {
-                    sendErrorResponse(ctx, "请求参数不合法");
+                    sendErrorResponse(ctx, "the request parameter is invalid");
                     return;
                 }
                 String key = tokens[2];
                 Object data = OperationHandler.handleGetOperation(key);
                 if (data == null) {
-                    sendSuccessResponse(ctx, ApiResult.fail("键值对未找到"));
+                    sendSuccessResponse(ctx, ApiResult.fail("Key-value pair not found"));
                     return;
                 }
                 sendSuccessResponse(ctx, ApiResult.success(data));
@@ -78,28 +77,28 @@ private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
                 sendSuccessResponse(ctx, ApiResult.success(allData));
                 break;
             default:
-                sendErrorResponse(ctx, "不支持的请求方法");
+                sendErrorResponse(ctx, "unsupported request methods");
                 break;
         }
     }
 
-    private void handlePostRequest(ChannelHandlerContext ctx, FullHttpRequest req, UriOperationEnum operation, String requestBodyString) {
+    private void handlePostRequest(ChannelHandlerContext ctx, UriOperationEnum operation, String requestBodyString) {
         switch (operation) {
             case SET:
                 boolean setSuccess = OperationHandler.handleSetOperation(requestBodyString);
-                sendSuccessResponse(ctx, setSuccess ? ApiResult.success("设置成功") : ApiResult.fail("设置失败"));
+                sendSuccessResponse(ctx, setSuccess ? ApiResult.success("Set success") : ApiResult.fail("Set failure"));
                 break;
             case DEL:
                 boolean delSuccess = OperationHandler.handleDelOperation(requestBodyString);
-                sendSuccessResponse(ctx, delSuccess ? ApiResult.success("删除成功") : ApiResult.fail("删除失败"));
+                sendSuccessResponse(ctx, delSuccess ? ApiResult.success("Del success") : ApiResult.fail("Del failure"));
                 break;
             case EXPIRE:
                 boolean expireSuccess = OperationHandler.handleExpireOperation(requestBodyString);
-                sendSuccessResponse(ctx, expireSuccess ? ApiResult.success("失效时间设置成功") : ApiResult.fail("失效时间设置失败"));
+                sendSuccessResponse(ctx, expireSuccess ? ApiResult.success("Expire set success") : ApiResult.fail("Expire set failure"));
                 break;
             case RPUSH:
                 boolean rpushSuccess = OperationHandler.handleRpushOperation(requestBodyString);
-                sendSuccessResponse(ctx, rpushSuccess ? ApiResult.success("添加成功") : ApiResult.fail("添加失败"));
+                sendSuccessResponse(ctx, rpushSuccess ? ApiResult.success("Rpush success") : ApiResult.fail("Rpush failure"));
                 break;
             case LPOP:
                 Object lpopData = OperationHandler.handleLpopOperation(requestBodyString);
@@ -111,14 +110,14 @@ private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
                 break;
             case LPUSH:
                 boolean lpushSuccess = OperationHandler.handleLpushOperation(requestBodyString);
-                sendSuccessResponse(ctx, lpushSuccess ? ApiResult.success("添加成功") : ApiResult.fail("添加失败"));
+                sendSuccessResponse(ctx, lpushSuccess ? ApiResult.success("Lpush success") : ApiResult.fail("Lpush failure"));
                 break;
             case LLEN:
                 Integer llenData = OperationHandler.handleLlenOperation(requestBodyString);
                 sendSuccessResponse(ctx, ApiResult.success(llenData));
                 break;
             default:
-                sendErrorResponse(ctx, "不支持的请求方法");
+                sendErrorResponse(ctx, "Unsupported operation commands");
                 break;
         }
     }
@@ -127,45 +126,15 @@ private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
     private String[] checkLegalAndReturnToken(ChannelHandlerContext ctx, String uri) {
         String[] split;
         if (!uri.matches("^/[^/]+(/[^/]+)*$")) {
-            sendErrorResponse(ctx, "无效的 URI 格式");
+            sendErrorResponse(ctx, "Illegal URI format");
             return null;
         }
         split = uri.split("/");
         if (split.length < 2) {
-            sendErrorResponse(ctx, "无效 URI 格式");
+            sendErrorResponse(ctx, "Illegal URI format");
             return null;
         }
         return split;
-    }
-
-    private void handleGetOperation(ChannelHandlerContext ctx, FullHttpRequest req) {
-        String key = req.uri().substring(5);
-        Object value = cache.get(key);
-        ApiResult<Object> res;
-        if (value != null) {
-            res = ApiResult.success(value);
-        } else {
-            res = ApiResult.fail("键值对未找到");
-        }
-        sendSuccessResponse(ctx, res);
-    }
-
-    private void handleSetOperation(ChannelHandlerContext ctx, FullHttpRequest req) {
-        // 解析请求参数
-        String content = req.content().toString(StandardCharsets.UTF_8);
-        PostMessage setMessage = JSON.parseObject(content, PostMessage.class);
-        if (setMessage == null || setMessage.getKey() == null || setMessage.getValue() == null) {
-            sendSuccessResponse(ctx, ApiResult.fail("请求参数不合法"));
-            return;
-        }
-
-        String key = setMessage.getKey();
-        Object value = setMessage.getValue();
-        Long expireTime = setMessage.getExpireTime();
-        cache.set(key, value, expireTime);
-        ApiResult<Object> result = ApiResult.success();
-        // 将响应消息转换为 JSON 字符串
-        sendSuccessResponse(ctx, result);
     }
 
     // 发送成功请求

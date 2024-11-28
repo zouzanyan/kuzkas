@@ -1,0 +1,9 @@
+[kuzkas]
+port = 7508
+# 开启持久化
+#persistence = true
+# 持久化文件路径
+#data_persistence_file_path = "./dump.kuzkas"
+# 持久化间隔（单位毫秒）
+#data_persistence_interval = 10000
+

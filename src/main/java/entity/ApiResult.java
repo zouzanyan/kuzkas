@@ -1,12 +1,11 @@
 package entity;
 
-import lombok.Data;
 
 import java.io.Serializable;
 
-@Data
+
 public class ApiResult<T> implements Serializable {
-    private static final long serialVersionUID = 411731814484355577L;
+    private static final long serialVersionUID = 411731814484355637L;
     /**
      * 状态码
      */
@@ -19,6 +18,30 @@ public class ApiResult<T> implements Serializable {
      * 相关数据
      */
     private T data;
+
+    public int getCode() {
+        return code;
+    }
+
+    public void setCode(int code) {
+        this.code = code;
+    }
+
+    public String getMsg() {
+        return msg;
+    }
+
+    public void setMsg(String msg) {
+        this.msg = msg;
+    }
+
+    public T getData() {
+        return data;
+    }
+
+    public void setData(T data) {
+        this.data = data;
+    }
 
     public String toString() {
         return "ApiResult(code=" + this.getCode() + ", msg=" + this.getMsg() + ", data=" + this.getData() + ")";

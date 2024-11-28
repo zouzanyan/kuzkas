@@ -1,8 +1,10 @@
 package entity;
 
+import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 // 对Cache提供增强的功能
 public class Cache implements ICache{
@@ -10,21 +12,21 @@ public class Cache implements ICache{
     private final CacheCore cacheCore = new CacheCore();
 
     // 最后一次写入时间戳
-    private long lastExecWriteTime;
+    private final AtomicLong lastExecWriteTime = new AtomicLong(0);
 
     public Cache() {
     }
 
     public long getLastExecWriteTime() {
-        return lastExecWriteTime;
+        return lastExecWriteTime.get();
     }
 
-    public void setLastExecWriteTime(long lastExecWriteTime) {
-        this.lastExecWriteTime = lastExecWriteTime;
+    public void setLastExecWriteTime(long time) {
+        lastExecWriteTime.set(time);
     }
 
     public void updateLastExecWriteTime() {
-        this.lastExecWriteTime = System.currentTimeMillis();
+        lastExecWriteTime.set(System.currentTimeMillis());
     }
 
     public void clearExpiredKeys() {

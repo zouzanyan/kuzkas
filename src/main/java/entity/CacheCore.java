@@ -8,8 +8,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class CacheCore implements ICache {
 
-    // TODO 目前是多线程，可增加串行化处理逻辑，保证一致性
-
     private Map<String, CacheEntry> cacheMap = new ConcurrentHashMap<>();
 
     public CacheCore() {
@@ -119,7 +117,7 @@ public class CacheCore implements ICache {
             Map.Entry<String, CacheEntry> entry = iterator.next();
             CacheEntry cacheEntry = entry.getValue();
             long expireTimestamp = cacheEntry.getExpireTimestamp();
-            if (expireTimestamp > 0 && expireTimestamp < currentTimeMillis) {
+            if (expireTimestamp >= 0 && expireTimestamp < currentTimeMillis) {
                 iterator.remove();
             }
         }
