@@ -1,6 +1,12 @@
 package entity;
 
-import java.util.ConcurrentModificationException;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -9,7 +15,11 @@ import java.util.concurrent.atomic.AtomicLong;
 // 对Cache提供增强的功能
 public class Cache implements ICache{
 
+    // 缓存数据管理
     private final CacheCore cacheCore = new CacheCore();
+
+    // 文件缓存
+
 
     // 最后一次写入时间戳
     private final AtomicLong lastExecWriteTime = new AtomicLong(0);
@@ -113,13 +123,5 @@ public class Cache implements ICache{
     public int size() {
         return cacheCore.size();
     }
-
-    // 使用netty堆外内存保存字节数组
-    public void saveBytes(){
-
-    }
-
-
-
 
 }

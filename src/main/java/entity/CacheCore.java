@@ -1,6 +1,13 @@
 package entity;
 
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -8,18 +15,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class CacheCore implements ICache {
 
-    private Map<String, CacheEntry> cacheMap = new ConcurrentHashMap<>();
+    // 对象缓存
+    private final Map<String, CacheEntry> cacheMap = new ConcurrentHashMap<>();
+    // 文件元数据缓存
+    private final Map<String, FileMetadata> fileMetadataMap = new ConcurrentHashMap<>();
 
     public CacheCore() {
 
-    }
-
-    public Map<String, CacheEntry> getCacheMap() {
-        return cacheMap;
-    }
-
-    public void setCacheMap(Map<String, CacheEntry> cacheMap) {
-        this.cacheMap = cacheMap;
     }
 
     /**
@@ -235,7 +237,59 @@ public class CacheCore implements ICache {
 
 
     // 存入二进制字节数组数据
+    // 上传文件
+//   TODO . ..正则校验防止恶意构造文件路径
+    public void uploadFile(String uploadDir, String key, byte[] content, long expireTime) {
+        File file = new File(uploadDir + File.separator + key);
+        try (FileChannel fileChannel = new FileOutputStream(file).getChannel()) {
+            ByteBuffer buffer = ByteBuffer.allocateDirect(content.length);
+            buffer.put(content);
+            buffer.flip();
+            fileChannel.write(buffer);
+            long createTime = System.currentTimeMillis();
+            fileMetadataMap.put(key, new FileMetadata(key, file.length(), createTime, expireTime));
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to upload file", e);
+        }
+    }
 
+    // 获取文件
+    public byte[] getFile(String uploadDir, String key) {
+        FileMetadata metadata = fileMetadataMap.get(key);
+        if (metadata == null || metadata.isExpired()) {
+            return null;
+        }
+        File file = new File(uploadDir + File.separator + key);
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] content = new byte[(int) file.length()];
+            int read = fis.read(content);
+            return content;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read file", e);
+        }
+    }
+
+    // 删除文件
+    public boolean deleteFile(String uploadDir, String key) {
+        FileMetadata metadata = fileMetadataMap.remove(key);
+        if (metadata == null) {
+            return false;
+        }
+        File file = new File(uploadDir + File.separator + key);
+        return file.delete();
+    }
+
+    // 清理所有过期文件
+    public void clearExpiredFiles(String uploadDir) {
+        fileMetadataMap.entrySet().removeIf(entry -> {
+            FileMetadata metadata = entry.getValue();
+            if (metadata.isExpired()) {
+                File file = new File(uploadDir + File.separator + entry.getKey());
+                return file.delete();
+            }
+            return false;
+        });
+    }
 
 
     @Override

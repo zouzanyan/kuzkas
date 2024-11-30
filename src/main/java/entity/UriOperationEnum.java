@@ -12,7 +12,12 @@ public enum UriOperationEnum {
     LPUSH("lpush"),
     LPOP("lpop"),
     LRANGE("lrange"),
-    LLEN("llen");
+    LLEN("llen"),
+    FILEGET("fget"),
+    FILEUPLOAD("fupload"),
+    FILEDELETE("fdel"),
+    FILELIST("flist");
+
 
 
 

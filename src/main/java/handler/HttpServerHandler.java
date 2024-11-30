@@ -2,20 +2,15 @@ package handler;
 
 import com.alibaba.fastjson.JSON;
 import entity.ApiResult;
-import entity.Cache;
 import entity.UriOperationEnum;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
-import singleton.CacheSingleton;
 
 import java.nio.charset.StandardCharsets;
 
 public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
-
-    // 懒加载
-    private final Cache cache = CacheSingleton.getInstance();
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {
