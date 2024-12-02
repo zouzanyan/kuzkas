@@ -6,11 +6,17 @@ import entity.UriOperationEnum;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.multipart.HttpPostMultipartRequestDecoder;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
 
 public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private static final Logger logger = LoggerFactory.getLogger(HttpServerHandler.class);
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest req) {
@@ -18,35 +24,35 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
         handleRequest(ctx, req);
     }
 
-private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
-    // 解析请求
-    try {
-        String uri = req.uri();
-        HttpMethod method = req.method();
-        String requestBodyString = req.content().toString(StandardCharsets.UTF_8);
-        String operationSign = "";
-        String[] tokens = checkLegalAndReturnToken(ctx, uri);
-        if (tokens == null) return;
-        operationSign = tokens[1];
+    private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
+        // 解析请求
+        try {
+            String uri = req.uri();
+            HttpMethod method = req.method();
+            String requestBodyString = req.content().toString(StandardCharsets.UTF_8);
+            String operationSign = "";
+            String[] tokens = checkLegalAndReturnToken(ctx, uri);
+            if (tokens == null) return;
+            operationSign = tokens[1];
 
-        UriOperationEnum operation = UriOperationEnum.fromUri(operationSign);
-        if (operation == null) {
-            sendErrorResponse(ctx, "Unsupported operation command");
-            return;
-        }
+            UriOperationEnum operation = UriOperationEnum.fromUri(operationSign);
+            if (operation == null) {
+                sendErrorResponse(ctx, "Unsupported operation command");
+                return;
+            }
 
-        if (HttpMethod.GET.equals(method)) {
-            handleGetRequest(ctx, operation, tokens);
-        } else if (HttpMethod.POST.equals(method)) {
-            handlePostRequest(ctx, operation, requestBodyString);
-        } else {
-            sendErrorResponse(ctx, "Unsupported request method");
+            if (HttpMethod.GET.equals(method)) {
+                handleGetRequest(ctx, operation, tokens);
+            } else if (HttpMethod.POST.equals(method)) {
+                handlePostRequest(ctx, operation, requestBodyString, req);
+            } else {
+                sendErrorResponse(ctx, "Unsupported request method");
+            }
+        } catch (Exception e) {
+            sendErrorResponse(ctx, "The request parameter is illegal");
+            logger.error("Request parameter error", e);
         }
-    } catch (Exception e) {
-        sendErrorResponse(ctx, "The request parameter is illegal");
-        e.printStackTrace();
     }
-}
 
     private void handleGetRequest(ChannelHandlerContext ctx, UriOperationEnum operation, String[] tokens) {
         switch (operation) {
@@ -77,7 +83,8 @@ private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
         }
     }
 
-    private void handlePostRequest(ChannelHandlerContext ctx, UriOperationEnum operation, String requestBodyString) {
+
+    private void handlePostRequest(ChannelHandlerContext ctx, UriOperationEnum operation, String requestBodyString, FullHttpRequest req) {
         switch (operation) {
             case SET:
                 boolean setSuccess = OperationHandler.handleSetOperation(requestBodyString);
@@ -110,6 +117,10 @@ private void handleRequest(ChannelHandlerContext ctx, FullHttpRequest req) {
             case LLEN:
                 Integer llenData = OperationHandler.handleLlenOperation(requestBodyString);
                 sendSuccessResponse(ctx, ApiResult.success(llenData));
+                break;
+            case FILEUPLOAD:
+                boolean uploadSuccess = OperationHandler.handleFileUploadOperation(new HttpPostRequestDecoder(req));
+                sendSuccessResponse(ctx, uploadSuccess ? ApiResult.success("File upload success") : ApiResult.fail("File upload failure"));
                 break;
             default:
                 sendErrorResponse(ctx, "Unsupported operation commands");

@@ -9,6 +9,7 @@ import config.KuzkasConfig;
 import entity.Cache;
 import entity.CacheCore;
 import entity.CacheManager;
+import entity.FileMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +20,7 @@ import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class KuzkasBootStrap {
@@ -29,10 +31,22 @@ public class KuzkasBootStrap {
     private static final long saveInterval = kuzkasConfig.getPersistent_interval();
     private final Kryo kryo;
 
-    private final ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(3);
+    private final ScheduledExecutorService scheduledExecutorService;
     private Cache cache;
 
     public KuzkasBootStrap() {
+        ThreadFactory schedulerThreadFactory = new ThreadFactory() {
+            private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r, "Kuzkas-scheduler-sava-" + threadNumber.getAndIncrement());
+                t.setDaemon(false); // 设置为非守护线程
+                t.setPriority(Thread.NORM_PRIORITY);
+                return t;
+            }
+        };
+        scheduledExecutorService = Executors.newScheduledThreadPool(3, schedulerThreadFactory);
         // sync保证kryo线程安全
         kryo = new Kryo();
         kryoSeriConfig(kryo);
@@ -92,24 +106,41 @@ public class KuzkasBootStrap {
     private void scheduleSaveCacheTask() {
 
         if (kuzkasConfig.isPersistent_file_write()) {
+            // 每隔saveInterval时间，将缓存数据持久化
             scheduledExecutorService.scheduleWithFixedDelay(() -> {
                 try {
+                    // 缓存数据saveInterval时间间隔未更新则不执行落盘
                     if (System.currentTimeMillis() - cache.getLastExecWriteTime() > saveInterval) {
                         return;
                     }
                     cacheDataSave();
                 } catch (Exception e) {
-                    logger.error("scheduled Data persistence failed", e);
+                    logger.error("Scheduled Data persistence failed", e);
                 }
             }, 1000, saveInterval, TimeUnit.MILLISECONDS);
         }
+
+    }
+    private void scheduleRemoveExpiredCacheTask() {
+        // 每10秒全盘遍历清理一次过期数据
+        scheduledExecutorService.scheduleWithFixedDelay(() -> {
+            try {
+                // 缓存数据saveInterval时间间隔未更新则不执行定期删除
+                if (System.currentTimeMillis() - cache.getLastExecWriteTime() > saveInterval) {
+                    return;
+                }
+                cache.clearExpiredKeys();
+            } catch (Exception e) {
+                logger.error("Scheduled remove expired data error", e);
+            }
+        }, 1000, 10000, TimeUnit.MILLISECONDS);
     }
 
     public synchronized void cacheDataSave() {
         long startTime = System.currentTimeMillis();
         try (FileOutputStream fileOut = new FileOutputStream(Persistent_file_path); Output output = new Output(fileOut)) {
             kryo.writeObject(output, cache);
-            logger.info("Data persistence was successful, time consuming: {} ms", System.currentTimeMillis() - startTime);
+            logger.debug("Data persistence was successful, time consuming: {} ms", System.currentTimeMillis() - startTime);
         } catch (IOException e) {
             logger.error("Data persistence failed", e);
         }
@@ -126,6 +157,7 @@ public class KuzkasBootStrap {
         kryo.register(Cache.class);
         kryo.register(CacheCore.CacheEntry.class);
         kryo.register(CacheCore.class);
+        kryo.register(FileMetadata.class);
         // FastJSON的数据类型
         kryo.register(JSONObject.class);
         kryo.register(JSONArray.class);

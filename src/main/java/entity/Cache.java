@@ -124,4 +124,22 @@ public class Cache implements ICache{
         return cacheCore.size();
     }
 
+    public void uploadFile(String uploadDir, String key, byte[] content, long expireTime) {
+        updateLastExecWriteTime();
+        cacheCore.uploadFile(uploadDir, key, content, expireTime);
+    }
+
+    public byte[] getFile(String uploadDir, String key) {
+        return cacheCore.getFile(uploadDir, key);
+    }
+
+    public boolean deleteFile(String uploadDir, String key) {
+        updateLastExecWriteTime();
+        return cacheCore.deleteFile(uploadDir, key);
+    }
+
+    public void clearExpiredFiles(String uploadDir) {
+        cacheCore.clearExpiredFiles(uploadDir);
+    }
+
 }

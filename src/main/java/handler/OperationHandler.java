@@ -4,9 +4,18 @@ package handler;
 import com.alibaba.fastjson.JSON;
 import entity.Cache;
 import entity.CacheManager;
+import io.netty.handler.codec.http.multipart.FileUpload;
+import io.netty.handler.codec.http.multipart.HttpPostMultipartRequestDecoder;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
 import message.PostMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 
 public class OperationHandler {
+    private static final Logger logger = LoggerFactory.getLogger(OperationHandler.class);
     private static final Cache cache = CacheManager.getCache();
 
     public static Object handleGetOperation(String key) {
@@ -80,5 +89,30 @@ public class OperationHandler {
     public static Integer handleLlenOperation(String content) {
         PostMessage llenMessage = JSON.parseObject(content, PostMessage.class);
         return cache.llen(llenMessage.getKey());
+    }
+
+    public static boolean handleFileUploadOperation(HttpPostRequestDecoder requestDecoder) {
+        while (requestDecoder.hasNext()) {
+            InterfaceHttpData data = requestDecoder.next();
+            if (data != null) {
+                try {
+                    // 只处理文件类型的formdata
+                    if (data.getHttpDataType() == InterfaceHttpData.HttpDataType.FileUpload) {
+                        FileUpload fileUpload = (FileUpload) data;
+                        if (fileUpload.isCompleted()) {
+                            byte[] bytes = fileUpload.get();
+                            cache.uploadFile("uploadDir", fileUpload.getFilename(), bytes, -1);
+                        }
+                    }
+                } catch (IOException e) {
+                    logger.error(data.getName() + "上传异常");
+                    logger.error("File upload failed", e);
+                    return false;
+                } finally {
+                    data.release();
+                }
+            }
+        }
+        return true;
     }
 }
