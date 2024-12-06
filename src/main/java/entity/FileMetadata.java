@@ -3,10 +3,14 @@ package entity;
 import java.util.Objects;
 
 public class FileMetadata {
-    private final String key;
-    private final long size;
-    private final long createTime;
-    private final long expireTime;
+    private  String key;
+    private  long size;
+    private  long createTime;
+    private  long expireTime;
+
+    public FileMetadata(){
+
+    }
 
     public FileMetadata(String key, long size, long createTime, long expireTime) {
         this.key = key;
@@ -17,6 +21,38 @@ public class FileMetadata {
 
     public boolean isExpired() {
         return System.currentTimeMillis() > createTime + expireTime;
+    }
+
+    public String getKey() {
+        return key;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
+    }
+
+    public long getSize() {
+        return size;
+    }
+
+    public void setSize(long size) {
+        this.size = size;
+    }
+
+    public long getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(long createTime) {
+        this.createTime = createTime;
+    }
+
+    public long getExpireTime() {
+        return expireTime;
+    }
+
+    public void setExpireTime(long expireTime) {
+        this.expireTime = expireTime;
     }
 
     @Override
@@ -30,21 +66,5 @@ public class FileMetadata {
     @Override
     public int hashCode() {
         return Objects.hash(key, size, createTime, expireTime);
-    }
-
-    public String getKey() {
-        return key;
-    }
-
-    public long getSize() {
-        return size;
-    }
-
-    public long getCreateTime() {
-        return createTime;
-    }
-
-    public long getExpireTime() {
-        return expireTime;
     }
 }

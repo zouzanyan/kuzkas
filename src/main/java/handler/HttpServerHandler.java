@@ -3,17 +3,17 @@ package handler;
 import com.alibaba.fastjson.JSON;
 import entity.ApiResult;
 import entity.UriOperationEnum;
+import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.DecoderResult;
 import io.netty.handler.codec.http.*;
-import io.netty.handler.codec.http.multipart.HttpPostMultipartRequestDecoder;
 import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
     private static final Logger logger = LoggerFactory.getLogger(HttpServerHandler.class);
@@ -77,6 +77,26 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
                 Object allData = OperationHandler.handleAllKeyValuesOperation();
                 sendSuccessResponse(ctx, ApiResult.success(allData));
                 break;
+            case FILEGET:
+                if (tokens.length != 3) {
+                    sendErrorResponse(ctx, "the request parameter is invalid");
+                    return;
+                }
+                String fileName = tokens[2];
+                byte[] fileData = OperationHandler.handleFileGetOperation(fileName);
+                // 返回文件数据
+                if (fileData != null) {
+                    ByteBuf byteBuf = Unpooled.wrappedBuffer(fileData);
+                    FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(200), byteBuf);
+                    response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/octet-stream");
+                    response.headers().set(HttpHeaderNames.CONTENT_LENGTH, byteBuf.readableBytes());
+                    ctx.writeAndFlush(response);
+                } else {
+                    sendSuccessResponse(ctx, ApiResult.success("File not found or expired"));
+                }
+            case FILELIST:
+                sendSuccessResponse(ctx, ApiResult.success(OperationHandler.handleFileListOperation()));
+                break;
             default:
                 sendErrorResponse(ctx, "unsupported request methods");
                 break;
@@ -118,9 +138,22 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
                 Integer llenData = OperationHandler.handleLlenOperation(requestBodyString);
                 sendSuccessResponse(ctx, ApiResult.success(llenData));
                 break;
+            case LRANGE:
+                List<Object> lrangeData = null;
+                try {
+                    lrangeData = OperationHandler.handleLrangeOperation(requestBodyString);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                sendSuccessResponse(ctx, ApiResult.success(lrangeData));
+                break;
             case FILEUPLOAD:
                 boolean uploadSuccess = OperationHandler.handleFileUploadOperation(new HttpPostRequestDecoder(req));
                 sendSuccessResponse(ctx, uploadSuccess ? ApiResult.success("File upload success") : ApiResult.fail("File upload failure"));
+                break;
+            case FILEXPIRE:
+                boolean fileExpireSuccess = OperationHandler.handleFileExpireOperation(requestBodyString);
+                sendSuccessResponse(ctx, fileExpireSuccess ? ApiResult.success("File expire success") : ApiResult.fail("File expire failure"));
                 break;
             default:
                 sendErrorResponse(ctx, "Unsupported operation commands");
@@ -162,4 +195,3 @@ public class HttpServerHandler extends SimpleChannelInboundHandler<FullHttpReque
         ctx.writeAndFlush(response);
     }
 }
-

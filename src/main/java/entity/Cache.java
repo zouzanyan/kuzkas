@@ -1,19 +1,12 @@
 package entity;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 // 对Cache提供增强的功能
-public class Cache implements ICache{
+public class Cache implements ICache {
 
     // 缓存数据管理
     private final CacheCore cacheCore = new CacheCore();
@@ -52,7 +45,7 @@ public class Cache implements ICache{
     @Override
     public boolean setIfAbsent(String key, Object value, Long expireTime) {
         boolean b = cacheCore.setIfAbsent(key, value, expireTime);
-        if (b){
+        if (b) {
             updateLastExecWriteTime();
         }
         return b;
@@ -140,6 +133,15 @@ public class Cache implements ICache{
 
     public void clearExpiredFiles(String uploadDir) {
         cacheCore.clearExpiredFiles(uploadDir);
+    }
+
+    public boolean expireFile(String uploadDir, String key, long expireTime) {
+        updateLastExecWriteTime();
+        return cacheCore.expireFile(uploadDir, key, expireTime);
+    }
+
+    public Map<String, FileMetadata> getAllFileMetadata() {
+        return cacheCore.getAllFileMetadata();
     }
 
 }

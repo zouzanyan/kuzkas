@@ -1,6 +1,8 @@
 package entity;
 
 
+import sun.misc.Unsafe;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -267,6 +269,21 @@ public class CacheCore implements ICache {
         } catch (IOException e) {
             throw new RuntimeException("Failed to read file", e);
         }
+    }
+
+    // 文件续期
+    public boolean expireFile(String uploadDir, String key, long expireTime) {
+        FileMetadata metadata = fileMetadataMap.get(key);
+        if (metadata == null) {
+            return false;
+        }
+        metadata.setExpireTime(expireTime);
+        return true;
+    }
+
+    // 获取所有文件元数据
+    public Map<String, FileMetadata> getAllFileMetadata() {
+        return fileMetadataMap;
     }
 
     // 删除文件

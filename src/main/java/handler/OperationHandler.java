@@ -4,15 +4,16 @@ package handler;
 import com.alibaba.fastjson.JSON;
 import entity.Cache;
 import entity.CacheManager;
-import io.netty.handler.codec.http.multipart.FileUpload;
-import io.netty.handler.codec.http.multipart.HttpPostMultipartRequestDecoder;
-import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
-import io.netty.handler.codec.http.multipart.InterfaceHttpData;
+import entity.FileMetadata;
+import io.netty.handler.codec.http.multipart.*;
 import message.PostMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class OperationHandler {
     private static final Logger logger = LoggerFactory.getLogger(OperationHandler.class);
@@ -81,7 +82,7 @@ public class OperationHandler {
         return cache.rpop(rpopMessage.getKey());
     }
 
-    public static Object handleLrangeOperation(String content) throws Exception {
+    public static List<Object> handleLrangeOperation(String content) throws Exception {
         PostMessage lrangeMessage = JSON.parseObject(content, PostMessage.class);
         return cache.lrange(lrangeMessage.getKey(), lrangeMessage.getListIndexStart(), lrangeMessage.getListIndexEnd());
     }
@@ -92,27 +93,62 @@ public class OperationHandler {
     }
 
     public static boolean handleFileUploadOperation(HttpPostRequestDecoder requestDecoder) {
-        while (requestDecoder.hasNext()) {
-            InterfaceHttpData data = requestDecoder.next();
-            if (data != null) {
+        Map<String, Long> fileNameExpiredTime = new HashMap<>(16);
+        List<InterfaceHttpData> attributes = requestDecoder.getBodyHttpDatas();
+        if (attributes == null || attributes.size() == 0) {
+            return false;
+        }
+        // 获取文件过期时间
+        for (InterfaceHttpData data : attributes) {
+            if (data instanceof MixedAttribute) {
+                Attribute attribute = (Attribute) data;
+                String name = attribute.getName();
+                String value = null;
                 try {
-                    // 只处理文件类型的formdata
-                    if (data.getHttpDataType() == InterfaceHttpData.HttpDataType.FileUpload) {
-                        FileUpload fileUpload = (FileUpload) data;
-                        if (fileUpload.isCompleted()) {
-                            byte[] bytes = fileUpload.get();
-                            cache.uploadFile("uploadDir", fileUpload.getFilename(), bytes, -1);
-                        }
-                    }
+                    value = attribute.getValue();
+                    fileNameExpiredTime.put(name, Long.valueOf(value));
                 } catch (IOException e) {
-                    logger.error(data.getName() + "上传异常");
-                    logger.error("File upload failed", e);
+                    logger.warn("File expired time set failed");
                     return false;
-                } finally {
-                    data.release();
+                }
+            }
+        }
+        // 获取文件
+        for (InterfaceHttpData data : attributes) {
+            if (data instanceof FileUpload) {
+                FileUpload fileUpload = (FileUpload) data;
+                if (fileUpload.isCompleted()) {
+                    try {
+                        byte[] bytes = fileUpload.get();
+                        Long fileExpiredTime = fileNameExpiredTime.getOrDefault(fileUpload.getFilename(),-1L);
+                        cache.uploadFile("uploadDir", fileUpload.getFilename(), bytes, fileExpiredTime);
+                    } catch (IOException e) {
+                        logger.error("File upload failed", e);
+                        return false;
+                    }
                 }
             }
         }
         return true;
+    }
+
+    public static byte[] handleFileGetOperation(String key) {
+        return cache.getFile("uploadDir", key);
+    }
+
+    public static boolean handleFileDeleteOperation(String key) {
+        return cache.deleteFile("uploadDir", key);
+    }
+
+    // 文件续期
+    public static boolean handleFileExpireOperation(String key) {
+        PostMessage expireMessage = JSON.parseObject(key, PostMessage.class);
+        Long expire = expireMessage.getExpireTime();
+        String fileKey = expireMessage.getKey();
+        return cache.expireFile("uploadDir", fileKey, expire);
+    }
+
+    public static Map<String, FileMetadata> handleFileListOperation() {
+        return cache.getAllFileMetadata();
     }
 }

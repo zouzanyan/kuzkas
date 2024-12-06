@@ -16,7 +16,8 @@ public enum UriOperationEnum {
     FILEGET("fget"),
     FILEUPLOAD("fupload"),
     FILEDELETE("fdel"),
-    FILELIST("flist");
+    FILELIST("flist"),
+    FILEXPIRE("fexpire");
 
 
 

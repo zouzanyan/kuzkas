@@ -13,6 +13,7 @@ import entity.FileMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Resources;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -56,6 +57,18 @@ public class KuzkasBootStrap {
         initCache();
         scheduleTaskStart();
         serverStart();
+    }
+
+    public static void initBanner() {
+        // 从resource文件夹下读取banner.txt文件
+        try (FileInputStream fis = new FileInputStream("src/main/resources/banner.txt")) {
+            byte[] bytes = new byte[fis.available()];
+            fis.read(bytes);
+            String banner = new String(bytes);
+            System.out.println(banner);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 
